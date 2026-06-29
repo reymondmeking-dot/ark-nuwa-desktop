@@ -1,0 +1,13 @@
+# Rust
+/src-tauri/target
+# Frontend
+/node_modules
+/dist
+# Tauri generated
+/src-tauri/gen
+# Misc
+.DS_Store
+*.log
+# Signing certs / secrets (never commit)
+/certs
+*.pfx

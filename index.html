@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ark 蒸馏智能体 · Workflow</title>
+  </head>
+  <body>
+    <div id="app">
+      <nav id="sidebar">
+        <div class="brand">女娲 · Ark</div>
+        <button class="nav-btn active" data-view="settings">⚙️ 设置</button>
+        <button class="nav-btn" data-view="editor">🧩 Workflow</button>
+        <button class="nav-btn" data-view="runner">▶️ 运行</button>
+        <button class="nav-btn" data-view="chat">💬 对话</button>
+        <div class="nav-foot">单独调用火山方舟 · 认知蒸馏闭环</div>
+      </nav>
+      <main id="main">
+        <section id="view-settings" class="view active"></section>
+        <section id="view-editor" class="view"></section>
+        <section id="view-runner" class="view"></section>
+        <section id="view-chat" class="view"></section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

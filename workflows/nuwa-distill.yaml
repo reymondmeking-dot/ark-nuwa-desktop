@@ -1,0 +1,206 @@
+# 女娲蒸馏闭环 (Nuwa Distillation) — 内置默认 workflow
+# 复刻 https://github.com/alchaincyf/nuwa-skill 的认知蒸馏内核：
+#   6 路并行研究 → 研究复核 → 框架合成 → 验证门控(闭环) → 生成 SKILL → 质量测试 → 双评审精修
+#
+# 用法：在「运行器」中填入变量 person（要蒸馏的人物/主题），然后运行。
+# 闭环：validate_framework 不通过时回退到 synthesize_framework 重新合成，最多 2 次。
+
+name: 女娲蒸馏闭环
+description: 从公开材料提取某人的「认知操作系统」，产出可运行的视角 Skill，并通过质量测试。
+max_concurrency: 6
+
+vars:
+  person: "段永平"
+
+nodes:
+  # ---------- 第一阶段：6 路并行研究 ----------
+  - id: research_writings
+    type: llm
+    label: "研究·著作文字"
+    depends_on: []
+    output: writings
+    prompt: |
+      你在为「{{person}}」做认知蒸馏的资料研究。仅基于公开、第一手材料。
+      聚焦其【著作 / 长文 / 正式文字】，提炼反复出现的核心观点与论证方式。
+      输出要点列表，每条标注大致来源类型。不要编造具体引文。
+
+  - id: research_conversations
+    type: llm
+    label: "研究·对话访谈"
+    depends_on: []
+    output: conversations
+    prompt: |
+      研究「{{person}}」的【访谈 / 播客 / 问答】中的口头表达。
+      提炼他在被追问时如何拆解问题、常用的类比和反问。输出要点列表。
+
+  - id: research_style
+    type: llm
+    label: "研究·表达风格"
+    depends_on: []
+    output: style
+    prompt: |
+      分析「{{person}}」的【表达 DNA】：句式长短、高频词、修辞习惯、
+      情绪基调、标志性说法。输出可复现的风格特征清单。
+
+  - id: research_external
+    type: llm
+    label: "研究·外部评价"
+    depends_on: []
+    output: external
+    prompt: |
+      汇总外部对「{{person}}」的【评价与批评】（支持者与反对者）。
+      区分「公开表达」与「他人推测」，标注不确定性。输出对照要点。
+
+  - id: research_decisions
+    type: llm
+    label: "研究·决策史"
+    depends_on: []
+    output: decisions
+    prompt: |
+      梳理「{{person}}」的【关键决策史】：在哪些岔路口做了什么选择、
+      公开给出的理由。从中归纳其决策启发式。输出决策—理由对照表。
+
+  - id: research_timeline
+    type: llm
+    label: "研究·人生时间线"
+    depends_on: []
+    output: timeline
+    prompt: |
+      构建「{{person}}」的【人生/事业时间线】关键节点，标注哪些经历
+      可能塑造了其思维方式。输出时间线要点。
+
+  # ---------- 第二阶段：研究复核 checkpoint ----------
+  - id: research_review
+    type: passthrough
+    label: "研究复核"
+    depends_on:
+      - research_writings
+      - research_conversations
+      - research_style
+      - research_external
+      - research_decisions
+      - research_timeline
+
+  # ---------- 第三阶段：框架合成 ----------
+  - id: synthesize_framework
+    type: synthesize
+    label: "框架合成"
+    depends_on: [research_review]
+    output: framework
+    prompt: |
+      若这是验证失败后的重试，上一轮验证反馈如下（第一轮为空）：
+      {{?validation}}
+
+      如果上一轮反馈指出“缺乏区分度”或“过度迁移巴菲特/芒格/通用格言”，本轮必须显式修正：
+      - 不要把“能力圈 / 买股票就是买公司 / 不为清单 / 平常心 / 做对的事情”等通用智慧直接列为核心心智模型；
+      - 可以把它们放在“思想谱系”里，但核心心智模型必须提炼「{{person}}」本人可区分的操作结构；
+      - 每个心智模型都要回答：它如何区别于巴菲特、芒格或普通价值投资者/管理者？
+      - 对每个模型给出至少 2 个来自不同材料轨道的支撑：表达、决策、时间线、外部评价或访谈。
+
+      基于以下研究材料，提炼「{{person}}」的认知框架。严禁角色扮演，
+      要提取可复用的思维操作系统。必须包含：
+      1) 3–7 个心智模型（每个给出名称+定义+适用场景）
+      2) 5–10 条决策规则（启发式）
+      3) 表达 DNA 摘要
+      4) 价值观与反模式（明确拒绝什么）
+      5) 思想谱系（受谁影响）
+      6) 诚实的能力边界（哪些问题他没公开讨论过、应表达不确定）
+
+      研究材料：
+      {{research_review}}
+
+  # ---------- 第四阶段：验证门控（闭环）----------
+  - id: validate_framework
+    type: validate
+    label: "验证门控"
+    depends_on: [synthesize_framework]
+    output: validation
+    criteria:
+      - "每个心智模型都跨领域出现（不止一个场景支持），不是泛泛的聪明话"
+      - "这些模型能用来预测他对新问题的看法（有预测力）"
+      - "具备区分度：是此人独特的，而非任何聪明人都会说的通用建议"
+      - "诚实标注了能力边界，没有把推测当成事实"
+    on_fail:
+      goto: synthesize_framework
+      max: 3
+
+  # ---------- 第五阶段：生成 SKILL ----------
+  - id: generate_skill
+    type: generate_skill
+    label: "生成 SKILL.md"
+    depends_on: [validate_framework, synthesize_framework]
+    output: skill
+    prompt: |
+      把以下已通过验证的认知框架，写成一个可运行的视角 Skill（Markdown）。
+      结构：
+      ---
+      name: {{person}}-perspective
+      description: 以「{{person}}」的认知框架分析问题
+      ---
+      # 我是谁（认知定位，非传记）
+      # 心智模型
+      # 决策规则
+      # 表达风格（如何说话）
+      # 价值观与反模式
+      # 能力边界（遇到未知应如何诚实表达不确定）
+
+      认知框架：
+      {{framework}}
+
+  # ---------- 第六阶段：质量测试 ----------
+  - id: test_sanity
+    type: test
+    label: "测试·已知观点一致性"
+    depends_on: [generate_skill]
+    output: test_sanity
+    prompt: |
+      用下面的 Skill 扮演「{{person}}」回答一个他【公开讨论过】的问题，
+      然后对照其真实公开立场，判断是否一致。输出：问题 / 回答 / 一致性评估。
+      Skill：
+      {{skill}}
+
+  - id: test_edge
+    type: test
+    label: "测试·边界不确定性"
+    depends_on: [generate_skill]
+    output: test_edge
+    prompt: |
+      用下面的 Skill 回答一个「{{person}}」【没有直接讨论过】的问题。
+      合格标准：应基于其框架审慎推断，并明确表达不确定，而非自信编造。
+      输出：问题 / 回答 / 是否恰当表达了不确定性。
+      Skill：
+      {{skill}}
+
+  - id: test_voice
+    type: test
+    label: "测试·风格一致性"
+    depends_on: [generate_skill]
+    output: test_voice
+    prompt: |
+      评估下面 Skill 产生的回答是否符合「{{person}}」的表达 DNA（句式/用词/语气）。
+      输出风格吻合度评估与改进建议。
+      Skill：
+      {{skill}}
+
+  # ---------- 第七阶段：双评审精修 ----------
+  - id: review_rigor
+    type: llm
+    label: "评审·严谨性"
+    depends_on: [generate_skill, test_sanity, test_edge, test_voice]
+    output: review_rigor
+    prompt: |
+      作为批判性评审员，依据下列质量测试结果，指出 Skill 中夸大、
+      不够诚实或缺乏区分度之处，给出具体修订建议。
+      Skill：{{skill}}
+      测试：{{test_sanity}} / {{test_edge}} / {{test_voice}}
+
+  - id: finalize_skill
+    type: generate_skill
+    label: "精修定稿"
+    depends_on: [generate_skill, review_rigor]
+    output: final_skill
+    prompt: |
+      根据评审意见修订并输出最终版 Skill（完整 Markdown，含 YAML frontmatter）。
+      保持诚实边界，不要为了好看而夸大。
+      原始 Skill：{{skill}}
+      评审意见：{{review_rigor}}
