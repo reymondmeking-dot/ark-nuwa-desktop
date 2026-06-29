@@ -32,12 +32,21 @@
 
 ## 🖼️ 应用预览
 
-> 📸 **截图占位** - 运行应用后截图替换
->
-> - **设置页**：Ark 配置、模型选择、API Key 输入、连接测试
-> - **运行页**：Workflow 执行可视化，节点状态实时更新，流式输出
-> - **编辑器**：YAML 工作流编辑，实时语法校验，DAG 验证
-> - **对话页**：蒸馏后 Skill 对话，多智能体切换
+<div align="center">
+
+| 设置页 | 运行页 |
+|:------:|:------:|
+| [![设置页](docs/screenshots/settings.png)](docs/screenshots/settings.png) | [![运行页](docs/screenshots/runner.png)](docs/screenshots/runner.png) |
+| Ark 配置、连接测试 | Workflow 执行可视化、流式输出 |
+
+| 编辑器 | 对话页 |
+|:------:|:------:|
+| [![编辑器](docs/screenshots/editor.png)](docs/screenshots/editor.png) | [![对话页](docs/screenshots/chat.png)](docs/screenshots/chat.png) |
+| YAML 工作流编辑与验证 | 蒸馏后智能体多轮对话 |
+
+</div>
+
+> 💡 **截图说明**：运行 `pnpm tauri dev` 启动应用后截图替换即可。
 
 ## 🏗️ 架构说明
 
