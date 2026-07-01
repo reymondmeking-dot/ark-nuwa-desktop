@@ -286,8 +286,7 @@ impl Engine {
             });
             let verdict =
                 execute_node(&node, ctx, self.client.clone(), &self.model, self.max_tokens, emit)
-                    .await
-                    .map_err(|e| e)?;
+                    .await?;
             store_node_output(ctx, &node, verdict.clone());
             let passed = verdict_passed(&verdict);
 

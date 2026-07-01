@@ -3,11 +3,26 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "基于 Tauri + Rust + TypeScript 的火山方舟蒸馏智能体桌面应用（Workflow DAG 引擎）",
+  "author": "ReyMao",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reymondmeking-dot/ark-nuwa-desktop.git"
+  },
+  "bin": {
+    "ark-nuwa": "./cli/ark-nuwa.mjs"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node cli/ark-nuwa.mjs dev",
+    "dev:vite": "vite",
+    "build": "node cli/ark-nuwa.mjs build",
+    "build:frontend": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "node cli/ark-nuwa.mjs test",
+    "lint": "node cli/ark-nuwa.mjs lint",
+    "ark-nuwa": "node cli/ark-nuwa.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

@@ -22,7 +22,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
-            commands::load_settings(&app.handle());
+            commands::load_settings(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

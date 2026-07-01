@@ -84,7 +84,94 @@ ark-nuwa-desktop/
 
 ## 🚀 快速开始
 
-### 前置环境
+## 📦 安装与开发 (macOS / Windows)
+
+本项目基于 Tauri 2，需要 Rust 工具链 + Node 18+ + pnpm。以下为两大平台的完整前置准备。
+
+### 🍎 macOS
+
+```bash
+# 1. Xcode 命令行工具（含 clang / make / git）
+xcode-select --install
+
+# 2. Rust 工具链
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup default stable
+
+# 3. Node 18+ 与 pnpm
+brew install node
+npm install -g pnpm
+
+# 4. 依赖安装 & 开发运行
+pnpm install
+pnpm ark-nuwa dev        # 等价于 pnpm tauri dev
+```
+
+生产构建（默认输出 `.dmg`）：
+
+```bash
+pnpm ark-nuwa build
+# 指定架构：
+pnpm ark-nuwa build --target aarch64-apple-darwin
+pnpm ark-nuwa build --target x86_64-apple-darwin
+```
+
+产物位于 `src-tauri/target/release/bundle/dmg/`。
+
+### 🪟 Windows 10 / 11
+
+```powershell
+# 1. MSVC C++ 构建工具（Tauri 编译强依赖）
+winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+
+# 2. WebView2（Win11 已预装；Win10 请从 https://developer.microsoft.com/microsoft-edge/webview2/ 安装）
+
+# 3. Rust
+winget install Rustlang.Rustup
+rustup default stable-msvc
+
+# 4. Node 18+ 与 pnpm
+winget install OpenJS.NodeJS.LTS
+npm install -g pnpm
+
+# 5. 依赖 & 开发
+pnpm install
+pnpm ark-nuwa dev
+```
+
+生产构建（默认输出 `.msi` + NSIS `.exe`）：
+
+```powershell
+pnpm ark-nuwa build
+```
+
+产物位于 `src-tauri\target\release\bundle\msi\` 和 `bundle\nsis\`。
+
+> ⚠️ `src-tauri/tauri.conf.json` 中的 `bundle.active` 默认为 `false`，正式发版前请手动置为 `true`。
+
+### 🧰 CLI 命令速查（跨平台）
+
+| 命令 | 作用 | 底层实现 |
+|------|------|----------|
+| `pnpm ark-nuwa dev` | Tauri + Vite 热更新开发 | `pnpm tauri dev` |
+| `pnpm ark-nuwa build` | 平台化生产构建 | `pnpm tauri build` |
+| `pnpm ark-nuwa build --target <triple>` | 指定目标三元组 | `pnpm tauri build --target …` |
+| `pnpm ark-nuwa build:frontend` | 仅前端 Vite 构建 | `vite build` |
+| `pnpm ark-nuwa test` | 后端 Rust 测试 | `cargo test --manifest-path src-tauri/Cargo.toml` |
+| `pnpm ark-nuwa lint` | Clippy 严格模式 | `cargo clippy --all-targets -- -D warnings` |
+| `pnpm ark-nuwa version` | 打印版本号 | 读取 `package.json` |
+| `pnpm ark-nuwa --help` | 帮助 | — |
+
+npm scripts 亦已改写为 CLI 代理，`pnpm dev` / `pnpm build` / `pnpm test` / `pnpm lint` 等同于对应子命令。
+
+### 🔒 安全说明
+
+- `tauri.conf.json` 已启用显式 CSP 白名单，`connect-src` 仅允许 `https://ark.cn-beijing.volces.com` 与 `https://api.anthropic.com`；如接入新后端，请同步更新 CSP。
+- 密钥仅通过 `tauri-plugin-store` 本地存储，不进入前端 bundle。
+
+---
+
+### 前置环境（简版）
 
 - **Rust 工具链** (1.77+)：`rustup install stable`
 - **MSVC Build Tools + Windows SDK** (Tauri 编译依赖)
@@ -205,7 +292,11 @@ nodes:
 
 ## 📄 许可证
 
-[MIT License](LICENSE) © 2026
+[MIT License](LICENSE) © 2026 **ReyMao**
+
+## 👤 作者
+
+**ReyMao** — [reymondmeking-dot](https://github.com/reymondmeking-dot)
 
 ---
 

@@ -2,7 +2,9 @@
 name = "ark-nuwa-desktop"
 version = "0.1.0"
 description = "Ark distillation agent with configurable workflows"
-authors = ["you"]
+authors = ["ReyMao"]
+license = "MIT"
+repository = "https://github.com/reymondmeking-dot/ark-nuwa-desktop"
 edition = "2021"
 rust-version = "1.77"
 
