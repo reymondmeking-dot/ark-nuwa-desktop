@@ -5,9 +5,29 @@
 /dist
 # Tauri generated
 /src-tauri/gen
-# Misc
-.DS_Store
-*.log
+# Env / secrets (never commit)
+.env
+.env.local
+.env.*.local
 # Signing certs / secrets (never commit)
 /certs
 *.pfx
+# Logs
+*.log
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+# OS
+.DS_Store
+Thumbs.db
+# Build caches / coverage
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+coverage/
+.nyc_output/
+# Python (scripts)
+__pycache__/
+.pytest_cache/
