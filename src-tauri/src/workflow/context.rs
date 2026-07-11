@@ -13,7 +13,10 @@ pub struct Context {
 
 impl Context {
     pub fn new(vars: BTreeMap<String, String>) -> Self {
-        Self { vars, outputs: BTreeMap::new() }
+        Self {
+            vars,
+            outputs: BTreeMap::new(),
+        }
     }
 
     pub fn set_output(&mut self, key: &str, value: String) {

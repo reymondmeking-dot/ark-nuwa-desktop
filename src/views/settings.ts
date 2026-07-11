@@ -1,130 +1,191 @@
-import { api, type SettingsView } from "../api";
+import { api, type SettingsPayload, type SettingsView } from "../api";
+import { errorMessage, escapeHtml, setButtonBusy } from "../dom";
 
 const ANTHROPIC_URL = "https://ark.cn-beijing.volces.com/api/coding";
 const OPENAI_URL = "https://ark.cn-beijing.volces.com/api/coding/v3";
 
+const DEFAULT_SETTINGS: SettingsView = {
+  base_url: ANTHROPIC_URL,
+  model: "ark-code-latest",
+  protocol: "anthropic",
+  temperature: 0.7,
+  max_tokens: 4096,
+  max_concurrency: 6,
+  timeout_secs: 120,
+  has_api_key: false,
+};
+
 export async function renderSettings(el: HTMLElement) {
-  const s: SettingsView = await api.getSettings().catch(() => ({
-    base_url: ANTHROPIC_URL,
-    model: "ark-code-latest",
-    protocol: "anthropic",
-    temperature: 0.7,
-    max_tokens: 4096,
-    max_concurrency: 6,
-    timeout_secs: 120,
-    has_api_key: false,
-  }));
-  const models = await api.codingModels().catch(() => ["ark-code-latest"]);
-  const isAnthropic = (s.protocol || "anthropic").toLowerCase() === "anthropic";
+  const [settings, models] = await Promise.all([
+    api.getSettings().catch(() => DEFAULT_SETTINGS),
+    api.codingModels().catch(() => ["ark-code-latest"]),
+  ]);
+  const isAnthropic =
+    (settings.protocol || "anthropic").toLowerCase() === "anthropic";
 
   el.innerHTML = `
     <h1>设置 · 火山方舟 Ark Coding Plan 接入</h1>
     <p class="sub">单独调用 Ark Coding Plan。默认 Anthropic 协议（与 Claude Code 相同，<code>ark-code-latest</code> 在此可用）。</p>
-    <div class="card">
-      <label>协议（与 base_url 联动）</label>
-      <select id="protocol">
+    <form class="card" id="settings-form">
+      <label for="protocol">协议（与 Base URL 联动）</label>
+      <select id="protocol" name="protocol">
         <option value="anthropic" ${isAnthropic ? "selected" : ""}>Anthropic 协议（/api/coding · 推荐，支持 ark-code-latest）</option>
         <option value="openai" ${!isAnthropic ? "selected" : ""}>OpenAI 协议（/api/coding/v3 · 需用具体模型名）</option>
       </select>
-      <p class="hint">为什么默认 Anthropic：托管别名 <code>ark-code-latest</code> 只在 Anthropic 口解析；OpenAI 口用该别名会 404。</p>
+      <p class="hint">托管别名 <code>ark-code-latest</code> 只在 Anthropic 接口解析；OpenAI 接口需填写具体模型名。</p>
 
-      <label>Base URL</label>
-      <input id="base_url" value="${s.base_url}" placeholder="${ANTHROPIC_URL}" />
-      <p class="hint">⚠️ 不要用 <code>/api/v3</code>（不走 Coding Plan 额度且会额外计费）。</p>
+      <label for="base_url">Base URL</label>
+      <input id="base_url" name="base_url" type="url" required readonly spellcheck="false" value="${escapeHtml(settings.base_url)}" placeholder="${ANTHROPIC_URL}" />
+      <p class="hint">不要使用 <code>/api/v3</code>，它不走 Coding Plan 额度，可能产生额外费用。</p>
 
-      <label>模型（model）</label>
-      <input id="model" list="model_list" value="${s.model}" placeholder="ark-code-latest 或具体模型名" />
+      <label for="model">模型（model）</label>
+      <input id="model" name="model" list="model_list" required spellcheck="false" value="${escapeHtml(settings.model)}" placeholder="ark-code-latest 或具体模型名" />
       <datalist id="model_list">
-        ${models.map((m) => `<option value="${m}"></option>`).join("")}
+        ${models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("")}
       </datalist>
-      <p class="hint"><code>ark-code-latest</code> 需在控制台「开通管理」选好生效模型；也可直接选具体模型名（如 deepseek-v4-pro、kimi-k2.7-code）。</p>
+      <p class="hint"><code>ark-code-latest</code> 需先在控制台「开通管理」选择生效模型，也可直接填写具体模型名。</p>
 
-      <label>API Key（Bearer Token）${s.has_api_key ? "— 已保存，留空表示不修改" : ""}</label>
-      <input id="api_key" type="password" placeholder="${s.has_api_key ? "•••••••• 已保存" : "粘贴已订阅 Coding Plan 的 API Key"}" />
+      <label for="api_key">API Key（Bearer Token）${settings.has_api_key ? " — 已保存，留空表示不修改" : ""}</label>
+      <input id="api_key" name="api_key" type="password" autocomplete="off" spellcheck="false" placeholder="${settings.has_api_key ? "•••••••• 已保存" : "粘贴已订阅 Coding Plan 的 API Key"}" />
 
-      <div class="row">
+      <div class="row settings-grid">
         <div>
-          <label>temperature</label>
-          <input id="temperature" type="number" step="0.1" min="0" max="2" value="${s.temperature}" />
+          <label for="temperature">temperature</label>
+          <input id="temperature" name="temperature" type="number" step="0.1" min="0" max="2" value="${settings.temperature}" />
         </div>
         <div>
-          <label>max_tokens（单次回复上限）</label>
-          <input id="max_tokens" type="number" min="1" max="65536" value="${s.max_tokens}" />
+          <label for="max_tokens">max_tokens（单次回复上限）</label>
+          <input id="max_tokens" name="max_tokens" type="number" min="1" max="65536" value="${settings.max_tokens}" />
         </div>
         <div>
-          <label>最大并发</label>
-          <input id="max_concurrency" type="number" min="1" max="16" value="${s.max_concurrency}" />
+          <label for="max_concurrency">最大并发</label>
+          <input id="max_concurrency" name="max_concurrency" type="number" min="1" max="16" value="${settings.max_concurrency}" />
         </div>
         <div>
-          <label>超时(秒)</label>
-          <input id="timeout_secs" type="number" min="5" value="${s.timeout_secs}" />
+          <label for="timeout_secs">超时（秒）</label>
+          <input id="timeout_secs" name="timeout_secs" type="number" min="5" max="3600" value="${settings.timeout_secs}" />
         </div>
       </div>
 
       <div class="btn-row">
-        <button class="primary" id="save">保存配置</button>
-        <button class="ghost" id="test">测试连接</button>
+        <button class="primary" id="save" type="submit">保存配置</button>
+        <button class="ghost" id="test" type="button">保存并测试连接</button>
       </div>
-      <div class="toast" id="toast"></div>
-      <p class="hint">密钥存储在应用本地配置（tauri-plugin-store），不会回传到界面，也不写入工作流文件。</p>
-    </div>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      <p class="hint">密钥保存在操作系统凭据库，不会写入 JSON 配置、界面或工作流文件。</p>
+    </form>
   `;
 
+  const form = el.querySelector("#settings-form") as HTMLFormElement;
   const toast = el.querySelector("#toast") as HTMLElement;
-  const show = (msg: string, ok: boolean) => {
-    toast.textContent = msg;
-    toast.className = `toast show ${ok ? "ok" : "err"}`;
-  };
-  const val = (id: string) => (el.querySelector("#" + id) as HTMLInputElement).value;
+  const saveButton = el.querySelector("#save") as HTMLButtonElement;
+  const testButton = el.querySelector("#test") as HTMLButtonElement;
   const baseUrlInput = el.querySelector("#base_url") as HTMLInputElement;
-  const protocolSel = el.querySelector("#protocol") as HTMLSelectElement;
+  const protocolSelect = el.querySelector("#protocol") as HTMLSelectElement;
 
-  // Switching protocol auto-fills the matching base_url (unless user customised).
-  protocolSel.addEventListener("change", () => {
-    const cur = baseUrlInput.value.trim();
-    if (cur === ANTHROPIC_URL || cur === OPENAI_URL || cur === "") {
+  const show = (message: string, ok: boolean) => {
+    toast.textContent = message;
+    toast.className = `toast show ${ok ? "ok" : "err"}`;
+    toast.setAttribute("role", ok ? "status" : "alert");
+  };
+
+  protocolSelect.addEventListener("change", () => {
+    const current = baseUrlInput.value.trim();
+    if (current === ANTHROPIC_URL || current === OPENAI_URL || current === "") {
       baseUrlInput.value =
-        protocolSel.value === "anthropic" ? ANTHROPIC_URL : OPENAI_URL;
+        protocolSelect.value === "anthropic" ? ANTHROPIC_URL : OPENAI_URL;
     }
   });
 
-  el.querySelector("#save")!.addEventListener("click", async () => {
+  const readPayload = (): SettingsPayload => {
+    if (!form.reportValidity()) throw new Error("请先补全或修正表单中的配置。");
+
+    const value = (id: string) =>
+      (el.querySelector(`#${id}`) as HTMLInputElement).value;
+    const baseUrl = value("base_url").trim();
+    const parsedUrl = new URL(baseUrl);
+    if (parsedUrl.protocol !== "https:") {
+      throw new Error("Base URL 必须使用 HTTPS。");
+    }
+    if (
+      parsedUrl.hostname !== "ark.cn-beijing.volces.com" ||
+      parsedUrl.username ||
+      parsedUrl.password ||
+      (parsedUrl.port && parsedUrl.port !== "443")
+    ) {
+      throw new Error("Base URL 只能使用官方 Ark HTTPS 域名。");
+    }
+    if (parsedUrl.search || parsedUrl.hash) {
+      throw new Error("Base URL 不能包含查询参数或片段。");
+    }
+    const expectedPath =
+      protocolSelect.value === "anthropic" ? "/api/coding" : "/api/coding/v3";
+    if (parsedUrl.pathname.replace(/\/+$/, "") !== expectedPath) {
+      throw new Error(`当前协议的 Base URL 路径必须是 ${expectedPath}。`);
+    }
+    const model = value("model").trim();
+    if (!model) throw new Error("模型名称不能为空。");
+
+    const clampInteger = (id: string, fallback: number, min: number, max: number) => {
+      const parsed = Number.parseInt(value(id), 10);
+      return Number.isFinite(parsed)
+        ? Math.min(max, Math.max(min, parsed))
+        : fallback;
+    };
+    const parsedTemperature = Number.parseFloat(value("temperature"));
+
+    return {
+      base_url: baseUrl.replace(/\/+$/, ""),
+      model,
+      protocol: protocolSelect.value,
+      api_key: value("api_key"),
+      temperature: Number.isFinite(parsedTemperature)
+        ? Math.min(2, Math.max(0, parsedTemperature))
+        : DEFAULT_SETTINGS.temperature,
+      max_tokens: clampInteger("max_tokens", 4096, 1, 65536),
+      max_concurrency: clampInteger("max_concurrency", 6, 1, 16),
+      timeout_secs: clampInteger("timeout_secs", 120, 5, 3600),
+    };
+  };
+
+  const persistSettings = async () => {
+    const payload = readPayload();
+    const message = await api.saveSettings(payload);
+    (el.querySelector("#temperature") as HTMLInputElement).value = String(payload.temperature);
+    (el.querySelector("#max_tokens") as HTMLInputElement).value = String(payload.max_tokens);
+    (el.querySelector("#max_concurrency") as HTMLInputElement).value = String(payload.max_concurrency);
+    (el.querySelector("#timeout_secs") as HTMLInputElement).value = String(payload.timeout_secs);
+    return message;
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setButtonBusy(saveButton, true, "保存中…");
+    testButton.disabled = true;
     try {
-      // Clamp max_tokens to a sane single-response ceiling. Users sometimes
-      // enter the context-window size (e.g. 256000) here, which the gateway
-      // rejects — max_tokens is the OUTPUT limit, not the context window.
-      let maxTokens = parseInt(val("max_tokens"));
-      let clampNote = "";
-      if (!Number.isFinite(maxTokens) || maxTokens < 1) maxTokens = 4096;
-      if (maxTokens > 65536) {
-        maxTokens = 16384;
-        clampNote = "（max_tokens 过大已自动调整为 16384）";
-      }
-      await api.saveSettings({
-        base_url: val("base_url").trim(),
-        model: val("model").trim(),
-        protocol: protocolSel.value,
-        api_key: val("api_key"), // empty => keep existing
-        temperature: parseFloat(val("temperature")),
-        max_tokens: maxTokens,
-        max_concurrency: parseInt(val("max_concurrency")),
-        timeout_secs: parseInt(val("timeout_secs")),
-      });
-      // Reflect any clamp in the input box too.
-      (el.querySelector("#max_tokens") as HTMLInputElement).value = String(maxTokens);
-      show("✅ 配置已保存" + clampNote, true);
-    } catch (e) {
-      show("保存失败：" + e, false);
+      const message = await persistSettings();
+      show(message, true);
+    } catch (error) {
+      show(`保存失败：${errorMessage(error)}`, false);
+    } finally {
+      setButtonBusy(saveButton, false, "保存中…");
+      testButton.disabled = false;
     }
   });
 
-  el.querySelector("#test")!.addEventListener("click", async () => {
-    show("⏳ 正在测试连接…", true);
+  testButton.addEventListener("click", async () => {
+    setButtonBusy(testButton, true, "测试中…");
+    saveButton.disabled = true;
+    show("正在保存当前配置并测试连接…", true);
     try {
-      const r = await api.testConnection();
-      show("✅ " + r, true);
-    } catch (e) {
-      show("❌ " + e, false);
+      const saveMessage = await persistSettings();
+      const result = await api.testConnection();
+      show(`${saveMessage} ${result}`, true);
+    } catch (error) {
+      show(`连接失败：${errorMessage(error)}`, false);
+    } finally {
+      setButtonBusy(testButton, false, "测试中…");
+      saveButton.disabled = false;
     }
   });
 }

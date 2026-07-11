@@ -31,12 +31,29 @@ pub enum NodeStatus {
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum RunEvent {
-    NodeStatus { node: String, status: NodeStatus },
-    NodeChunk { node: String, delta: String },
-    NodeOutput { node: String, output: String },
-    LoopBack { from: String, to: String, attempt: u32 },
-    Log { message: String },
-    Finished { ok: bool },
+    NodeStatus {
+        node: String,
+        status: NodeStatus,
+    },
+    NodeChunk {
+        node: String,
+        delta: String,
+    },
+    NodeOutput {
+        node: String,
+        output: String,
+    },
+    LoopBack {
+        from: String,
+        to: String,
+        attempt: u32,
+    },
+    Log {
+        message: String,
+    },
+    Finished {
+        ok: bool,
+    },
 }
 
 /// Sink for run events. `Arc<dyn>` so it can be cloned across async tasks.
@@ -51,7 +68,10 @@ pub enum RunError {
     #[error("missing template keys in node '{node}': {keys:?}")]
     MissingKeys { node: String, keys: Vec<String> },
     #[error("llm error in node '{node}': {source}")]
-    Llm { node: String, source: crate::llm::LlmError },
+    Llm {
+        node: String,
+        source: crate::llm::LlmError,
+    },
 }
 
 pub struct Engine {
@@ -69,7 +89,11 @@ fn store_node_output(ctx: &mut Context, node: &Node, value: String) {
 
 impl Engine {
     pub fn new(client: Arc<dyn LlmClient>, model: String) -> Self {
-        Self { client, model, max_tokens: 8192 }
+        Self {
+            client,
+            model,
+            max_tokens: 8192,
+        }
     }
 
     /// Set the per-node output token limit (from user settings). Clamped to a
@@ -172,11 +196,7 @@ impl Engine {
 
     /// Execute the workflow to completion (or failure). Returns the final
     /// context (all node outputs) on success.
-    pub async fn run(
-        &self,
-        spec: &WorkflowSpec,
-        emit: EventSink,
-    ) -> Result<Context, RunError> {
+    pub async fn run(&self, spec: &WorkflowSpec, emit: EventSink) -> Result<Context, RunError> {
         let layers = Self::plan(spec)?;
         let mut ctx = Context::new(spec.vars.clone());
 
@@ -264,8 +284,14 @@ impl Engine {
             match res {
                 Ok(out) => {
                     store_node_output(ctx, node, out.clone());
-                    emit(RunEvent::NodeOutput { node: id.clone(), output: out });
-                    emit(RunEvent::NodeStatus { node: id, status: NodeStatus::Done });
+                    emit(RunEvent::NodeOutput {
+                        node: id.clone(),
+                        output: out,
+                    });
+                    emit(RunEvent::NodeStatus {
+                        node: id,
+                        status: NodeStatus::Done,
+                    });
                 }
                 Err(e) => {
                     emit(RunEvent::NodeStatus {
@@ -284,9 +310,15 @@ impl Engine {
                 node: id.clone(),
                 status: NodeStatus::Running,
             });
-            let verdict =
-                execute_node(&node, ctx, self.client.clone(), &self.model, self.max_tokens, emit)
-                    .await?;
+            let verdict = execute_node(
+                &node,
+                ctx,
+                self.client.clone(),
+                &self.model,
+                self.max_tokens,
+                emit,
+            )
+            .await?;
             store_node_output(ctx, &node, verdict.clone());
             let passed = verdict_passed(&verdict);
 
@@ -419,10 +451,7 @@ async fn execute_node(
         });
     }
 
-    let mut req = ChatRequest::new(
-        model.to_string(),
-        vec![ChatMessage::user(prompt)],
-    );
+    let mut req = ChatRequest::new(model.to_string(), vec![ChatMessage::user(prompt)]);
     req.max_tokens = Some(max_tokens);
 
     // Stream so the UI sees live tokens; concatenated text is the output.

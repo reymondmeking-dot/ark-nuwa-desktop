@@ -6,7 +6,7 @@
 [![Rust](https://img.shields.io/badge/Rust-1.77+-DEA584?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/reymondmeking-dot/ark-nuwa-desktop/pulls)
 
 一个基于 **Tauri** 的桌面智能体应用，集成 **火山方舟（Ark）** AI 模型，提供可自由配置的 **Workflow（YAML/JSON DAG）**，内置完整的「认知蒸馏」闭环。
 
@@ -32,21 +32,12 @@
 
 ## 🖼️ 应用预览
 
-<div align="center">
-
-| 设置页 | 运行页 |
-|:------:|:------:|
-| [![设置页](docs/screenshots/settings.png)](docs/screenshots/settings.png) | [![运行页](docs/screenshots/runner.png)](docs/screenshots/runner.png) |
-| Ark 配置、连接测试 | Workflow 执行可视化、流式输出 |
-
-| 编辑器 | 对话页 |
-|:------:|:------:|
-| [![编辑器](docs/screenshots/editor.png)](docs/screenshots/editor.png) | [![对话页](docs/screenshots/chat.png)](docs/screenshots/chat.png) |
-| YAML 工作流编辑与验证 | 蒸馏后智能体多轮对话 |
-
-</div>
-
-> 💡 **截图说明**：运行 `pnpm tauri dev` 启动应用后截图替换即可。
+| 页面 | 能力 |
+|------|------|
+| 设置 | Ark 官方端点、系统凭据库密钥存储、连接测试 |
+| 编辑器 | YAML 工作流编辑、校验和本地工作流库 |
+| 运行 | DAG 执行可视化、流式输出和闭环重试 |
+| 对话 | 与蒸馏生成的智能体继续多轮交流 |
 
 ## 🏗️ 架构说明
 
@@ -256,7 +247,7 @@ nodes:
 ## 🧪 端到端验证步骤
 
 1. ✅ **启动**：`pnpm tauri dev` 启动应用
-2. ✅ **配置**：设置页填写 Ark Base URL、Model、API Key，点击「测试连接」
+2. ✅ **配置**：设置页选择 Ark 协议、填写 Model 和 API Key，点击「测试连接」；密钥写入系统凭据库，不进入 JSON 配置
 3. ✅ **运行**：运行页选择内置女娲蒸馏工作流，输入人物，观察执行
 4. ✅ **对话**：蒸馏完成后切换到对话页，与蒸馏智能体多轮交流
 5. ✅ **自定义**：编辑器页编写自定义 YAML Workflow，验证后运行

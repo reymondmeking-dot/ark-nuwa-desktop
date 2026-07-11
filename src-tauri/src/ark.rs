@@ -7,6 +7,7 @@
 //!   - header `Authorization: Bearer <ARK_API_KEY>`
 //!   - `model` = inference endpoint id (`ep-xxxx`) or model name
 
+use crate::config::validate_official_ark_base_url;
 use crate::llm::{ChatRequest, ChunkSink, LlmClient, LlmError};
 use async_trait::async_trait;
 use futures_util::StreamExt;
@@ -25,7 +26,7 @@ pub struct ArkConfig {
 impl Default for ArkConfig {
     fn default() -> Self {
         Self {
-            base_url: "https://ark.cn-beijing.volces.com/api/v3".into(),
+            base_url: "https://ark.cn-beijing.volces.com/api/coding/v3".into(),
             api_key: String::new(),
             model: String::new(),
             timeout_secs: 120,
@@ -41,10 +42,14 @@ pub struct ArkClient {
 
 impl ArkClient {
     pub fn new(cfg: ArkConfig) -> Result<Self, LlmError> {
+        validate_official_ark_base_url(&cfg.base_url, "/api/coding/v3")
+            .map_err(LlmError::Config)?;
         if cfg.api_key.trim().is_empty() {
             return Err(LlmError::Config("api_key 未配置".into()));
         }
         let http = reqwest::Client::builder()
+            .https_only(true)
+            .redirect(reqwest::redirect::Policy::none())
             .read_timeout(Duration::from_secs(cfg.timeout_secs))
             .connect_timeout(Duration::from_secs(30))
             .build()
@@ -53,7 +58,10 @@ impl ArkClient {
     }
 
     fn endpoint(&self) -> String {
-        format!("{}/chat/completions", self.cfg.base_url.trim_end_matches('/'))
+        format!(
+            "{}/chat/completions",
+            self.cfg.base_url.trim_end_matches('/')
+        )
     }
 
     fn models_endpoint(&self) -> String {
@@ -161,7 +169,10 @@ impl LlmClient for ArkClient {
                         backoff(attempt).await;
                         continue;
                     }
-                    return Err(LlmError::Http { status, body: bodytext });
+                    return Err(LlmError::Http {
+                        status,
+                        body: bodytext,
+                    });
                 }
                 Err(e) => {
                     if attempt < self.cfg.max_retries {
@@ -195,7 +206,10 @@ impl LlmClient for ArkClient {
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
             let bodytext = resp.text().await.unwrap_or_default();
-            return Err(LlmError::Http { status, body: bodytext });
+            return Err(LlmError::Http {
+                status,
+                body: bodytext,
+            });
         }
 
         let mut full = String::new();

@@ -21,12 +21,18 @@ async fn full_nuwa_distillation_produces_skill() {
         .on("人生/事业时间线", &["时间线要点"])
         .on("提炼", &["心智模型X（跨领域、可预测、有区分度）"]) // synthesize_framework
         .on("质量审查员", &["PASS 框架合格"]) // validate gate
-        .on("写成一个可运行的视角 Skill", &["---\nname: P-perspective\n---\n# skill"]) // generate
+        .on(
+            "写成一个可运行的视角 Skill",
+            &["---\nname: P-perspective\n---\n# skill"],
+        ) // generate
         .on("公开讨论过", &["一致"]) // test_sanity
         .on("没有直接讨论过", &["恰当表达了不确定"]) // test_edge
         .on("表达 DNA（句式", &["风格吻合"]) // test_voice
         .on("批判性评审员", &["建议：保持诚实边界"]) // review
-        .on("输出最终版 Skill", &["---\nname: P-perspective\n---\n# 最终 skill"]) // finalize
+        .on(
+            "输出最终版 Skill",
+            &["---\nname: P-perspective\n---\n# 最终 skill"],
+        ) // finalize
         .default_reply("（默认回复）");
 
     let engine = Engine::new(Arc::new(mock), "ep-test".into());

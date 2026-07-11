@@ -1,6 +1,6 @@
 [package]
 name = "ark-nuwa-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ark distillation agent with configurable workflows"
 authors = ["ReyMao"]
 license = "MIT"
@@ -30,6 +30,15 @@ thiserror = "1"
 anyhow = "1"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["sync-secret-service", "crypto-rust"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }

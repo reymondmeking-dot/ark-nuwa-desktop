@@ -101,7 +101,10 @@ nodes:
 "#;
     let spec = WorkflowSpec::parse(yaml).unwrap();
     let err = Engine::plan(&spec).unwrap_err();
-    assert!(matches!(err, SpecError::UnknownDependency { .. }), "got {err:?}");
+    assert!(
+        matches!(err, SpecError::UnknownDependency { .. }),
+        "got {err:?}"
+    );
 }
 
 #[tokio::test]

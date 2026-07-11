@@ -3,7 +3,7 @@
 // Node >= 18, ESM, 支持 macOS / Windows / Linux
 // Author: ReyMao
 
-import { spawnSync } from "node:child_process";
+import crossSpawn from "cross-spawn";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
@@ -12,6 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, "..");
 const IS_WIN = process.platform === "win32";
+const spawnSync = crossSpawn.sync;
 const PLATFORM_HINT =
   IS_WIN
     ? "Windows → 默认产物: .msi / .exe (NSIS)"
@@ -47,14 +48,9 @@ const HELP = `ark-nuwa — Tauri 2 + Vite + Rust 桌面应用 CLI (作者: ReyMa
 `;
 
 function run(cmd, args, opts = {}) {
-  // Windows: 合并成单字符串走 shell，避免 Node 24 的 DEP0190（args + shell:true 组合的转义弃用告警）
-  // POSIX: 直接 spawn，二进制路径无需 shell
-  const [file, spawnArgs, useShell] = IS_WIN
-    ? [[cmd, ...args].map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)).join(" "), [], true]
-    : [cmd, args, false];
-  const res = spawnSync(file, spawnArgs, {
+  const res = spawnSync(cmd, args, {
     stdio: "inherit",
-    shell: useShell,
+    shell: false,
     cwd: opts.cwd || ROOT,
     env: process.env,
   });
@@ -97,7 +93,22 @@ function cmdDev() {
 
 function cmdBuild(rest) {
   const { target } = parseFlags(rest);
-  const args = ["tauri", "build", ...(target ? ["--target", String(target)] : [])];
+  if (target === true) {
+    console.error("[ark-nuwa] --target 需要 Rust target triple，例如 aarch64-apple-darwin");
+    process.exit(2);
+  }
+  if (
+    target !== undefined &&
+    !/^[A-Za-z0-9_][A-Za-z0-9_.+-]{0,127}$/.test(String(target))
+  ) {
+    console.error(`[ark-nuwa] 非法 target triple: ${String(target)}`);
+    process.exit(2);
+  }
+  const args = [
+    "tauri",
+    "build",
+    ...(target ? ["--target", String(target)] : []),
+  ];
   console.log(`[ark-nuwa] 平台=${process.platform}  执行: pnpm ${args.join(" ")}`);
   run("pnpm", args);
 }

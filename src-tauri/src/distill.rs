@@ -9,8 +9,7 @@ pub const NUWA_DISTILL_YAML: &str = include_str!("../../workflows/nuwa-distill.y
 
 /// Parse the built-in workflow.
 pub fn default_workflow() -> WorkflowSpec {
-    WorkflowSpec::parse(NUWA_DISTILL_YAML)
-        .expect("built-in nuwa-distill.yaml must be valid")
+    WorkflowSpec::parse(NUWA_DISTILL_YAML).expect("built-in nuwa-distill.yaml must be valid")
 }
 
 /// After a distillation run, pull out the finished SKILL.md text. Prefers the
@@ -32,6 +31,9 @@ mod tests {
         // Plan must succeed: no cycles, deps resolve, goto is an ancestor.
         let layers = Engine::plan(&spec).expect("builtin must plan cleanly");
         // The 6 research nodes have no deps -> they share the first layer.
-        assert!(layers[0].len() >= 6, "research tracks should run in parallel");
+        assert!(
+            layers[0].len() >= 6,
+            "research tracks should run in parallel"
+        );
     }
 }

@@ -19,13 +19,18 @@ pub struct AppState {
 }
 
 const STORE_FILE: &str = "settings.json";
+const KEYRING_SERVICE: &str = "com.reymao.ark-nuwa-desktop";
+const KEYRING_ACCOUNT: &str = "ark-api-key";
 
 /// Build the right LLM client for the configured protocol. The Anthropic
 /// endpoint is where the console-managed `ark-code-latest` alias resolves.
 fn build_client(settings: &ArkSettings) -> Result<Arc<dyn LlmClient>, String> {
+    settings.validate()?;
     let cfg = settings.to_ark_config();
     if settings.is_anthropic() {
-        Ok(Arc::new(AnthropicClient::new(cfg).map_err(|e| e.to_string())?))
+        Ok(Arc::new(
+            AnthropicClient::new(cfg).map_err(|e| e.to_string())?,
+        ))
     } else {
         Ok(Arc::new(ArkClient::new(cfg).map_err(|e| e.to_string())?))
     }
@@ -43,17 +48,34 @@ pub fn save_settings(
     app: tauri::AppHandle,
     state: State<AppState>,
     settings: ArkSettings,
-) -> Result<(), String> {
+) -> Result<String, String> {
+    let supplied_new_key = !settings.api_key.trim().is_empty();
+    let mut incoming = settings;
+    if !supplied_new_key {
+        incoming.api_key = state.settings.lock().unwrap().api_key.clone();
+    }
+    incoming.validate()?;
+
+    let keyring_error = if supplied_new_key {
+        persist_api_key(&incoming.api_key).err()
+    } else {
+        None
+    };
+    persist(&app, &incoming).map_err(|e| e.to_string())?;
     {
         let mut guard = state.settings.lock().unwrap();
-        // Preserve an existing key if the UI sent an empty one (means "unchanged").
-        let mut incoming = settings;
-        if incoming.api_key.trim().is_empty() {
-            incoming.api_key = guard.api_key.clone();
-        }
         *guard = incoming;
     }
-    persist(&app, &state).map_err(|e| e.to_string())
+
+    if let Some(error) = keyring_error {
+        Ok(format!(
+            "配置已保存；系统凭据库不可用，API Key 仅在本次运行保留（{error}）"
+        ))
+    } else if supplied_new_key {
+        Ok("配置已保存，API Key 已写入系统凭据库。".into())
+    } else {
+        Ok("配置已保存。".into())
+    }
 }
 
 /// Send one minimal request to verify the Ark connection works.
@@ -61,7 +83,12 @@ pub fn save_settings(
 pub async fn test_connection(state: State<'_, AppState>) -> Result<String, String> {
     let (settings, model, base_url, is_anthropic) = {
         let s = state.settings.lock().unwrap();
-        (s.clone(), s.model.clone(), s.base_url.clone(), s.is_anthropic())
+        (
+            s.clone(),
+            s.model.clone(),
+            s.base_url.clone(),
+            s.is_anthropic(),
+        )
     };
     let client = build_client(&settings)?;
     let mut req = ChatRequest::new(
@@ -165,7 +192,13 @@ fn workflows_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 fn safe_filename(name: &str) -> String {
     let stem: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let stem = stem.trim_matches('_');
     let stem = if stem.is_empty() { "workflow" } else { stem };
@@ -197,7 +230,10 @@ pub fn list_workflows(app: tauri::AppHandle) -> Result<serde_json::Value, String
         }
     }
     items.sort_by(|a, b| {
-        a["filename"].as_str().unwrap_or("").cmp(b["filename"].as_str().unwrap_or(""))
+        a["filename"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["filename"].as_str().unwrap_or(""))
     });
     Ok(serde_json::json!(items))
 }
@@ -216,7 +252,11 @@ pub fn save_workflow(
 
     let dir = workflows_dir(&app)?;
     // Prefer an explicit name; fall back to the spec's own name.
-    let base = if name.trim().is_empty() { spec.name.clone() } else { name };
+    let base = if name.trim().is_empty() {
+        spec.name.clone()
+    } else {
+        name
+    };
     let filename = safe_filename(&base);
     std::fs::write(dir.join(&filename), source).map_err(|e| format!("写入失败：{e}"))?;
     Ok(filename)
@@ -244,7 +284,6 @@ pub fn delete_workflow(app: tauri::AppHandle, filename: String) -> Result<(), St
         .ok_or("非法文件名")?;
     std::fs::remove_file(dir.join(safe)).map_err(|e| format!("删除失败：{e}"))
 }
-
 
 /// Run a workflow, streaming `workflow://event` events to the frontend.
 /// On success, if the run produced a SKILL, opens a chat session for it.
@@ -315,11 +354,7 @@ pub fn list_sessions(state: State<AppState>) -> serde_json::Value {
 /// Create a chat session directly from a SKILL.md string (e.g. loading a saved
 /// skill rather than running a full distillation).
 #[tauri::command]
-pub fn create_session(
-    state: State<AppState>,
-    title: String,
-    skill_markdown: String,
-) -> String {
+pub fn create_session(state: State<AppState>, title: String, skill_markdown: String) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     let session = ChatSession::new(id.clone(), title, skill_markdown);
     state.sessions.lock().unwrap().push(session);
@@ -393,11 +428,30 @@ pub async fn chat_send(
 
 // ---------- persistence helpers ----------
 
-fn persist(app: &tauri::AppHandle, state: &State<AppState>) -> anyhow::Result<()> {
+fn credential_entry() -> anyhow::Result<keyring::Entry> {
+    Ok(keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)?)
+}
+
+fn persist_api_key(api_key: &str) -> anyhow::Result<()> {
+    credential_entry()?.set_password(api_key.trim())?;
+    Ok(())
+}
+
+fn load_api_key() -> Option<String> {
+    credential_entry()
+        .ok()?
+        .get_password()
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn persist(app: &tauri::AppHandle, settings: &ArkSettings) -> anyhow::Result<()> {
     use tauri_plugin_store::StoreExt;
     let store = app.store(STORE_FILE)?;
-    let s = state.settings.lock().unwrap();
-    store.set("settings", serde_json::to_value(&*s)?);
+    // ArkSettings::api_key is skip_serializing; settings.json never receives
+    // the bearer token even if this helper is reused elsewhere.
+    store.set("settings", serde_json::to_value(settings)?);
     store.save()?;
     Ok(())
 }
@@ -405,12 +459,46 @@ fn persist(app: &tauri::AppHandle, state: &State<AppState>) -> anyhow::Result<()
 /// Load persisted settings into state at startup.
 pub fn load_settings(app: &tauri::AppHandle) {
     use tauri_plugin_store::StoreExt;
+    let mut settings = ArkSettings::default();
+    let mut legacy_key = String::new();
+
     if let Ok(store) = app.store(STORE_FILE) {
         if let Some(v) = store.get("settings") {
-            if let Ok(s) = serde_json::from_value::<ArkSettings>(v) {
-                let state = app.state::<AppState>();
-                *state.settings.lock().unwrap() = s;
+            if let Ok(mut candidate) = serde_json::from_value::<ArkSettings>(v) {
+                legacy_key = std::mem::take(&mut candidate.api_key);
+                if candidate.validate().is_ok() {
+                    settings = candidate;
+                }
             }
         }
+
+        let env_key = std::env::var("ARK_API_KEY")
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let stored_key = load_api_key();
+        let should_migrate_legacy =
+            env_key.is_empty() && stored_key.is_none() && !legacy_key.is_empty();
+        settings.api_key = if !env_key.is_empty() {
+            env_key
+        } else if let Some(key) = stored_key {
+            key
+        } else {
+            legacy_key.clone()
+        };
+
+        // One-time migration from versions that stored the key in JSON. The
+        // plaintext copy is scrubbed even when the platform keyring is absent.
+        if should_migrate_legacy {
+            let _ = persist_api_key(&legacy_key);
+        }
+        store.set(
+            "settings",
+            serde_json::to_value(&settings).unwrap_or_else(|_| serde_json::json!({})),
+        );
+        let _ = store.save();
     }
+
+    let state = app.state::<AppState>();
+    *state.settings.lock().unwrap() = settings;
 }

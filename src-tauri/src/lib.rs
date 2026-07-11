@@ -1,8 +1,8 @@
 //! Library crate root. Modules are public so integration tests in `tests/` can
 //! exercise the kernel directly with a MockClient.
 
-pub mod ark;
 pub mod anthropic;
+pub mod ark;
 pub mod commands;
 pub mod config;
 pub mod distill;

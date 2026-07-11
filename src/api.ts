@@ -38,7 +38,7 @@ export type NodeStatus =
 export const api = {
   getSettings: () => invoke<SettingsView>("get_settings"),
   saveSettings: (settings: SettingsPayload) =>
-    invoke<void>("save_settings", { settings }),
+    invoke<string>("save_settings", { settings }),
   testConnection: () => invoke<string>("test_connection"),
 
   defaultWorkflowYaml: () => invoke<string>("default_workflow_yaml"),

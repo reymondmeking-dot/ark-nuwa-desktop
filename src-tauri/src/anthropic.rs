@@ -13,6 +13,7 @@
 //!   - `model` e.g. `ark-code-latest`
 
 use crate::ark::ArkConfig;
+use crate::config::validate_official_ark_base_url;
 use crate::llm::{ChatRequest, ChunkSink, LlmClient, LlmError};
 use async_trait::async_trait;
 use futures_util::StreamExt;
@@ -26,6 +27,7 @@ pub struct AnthropicClient {
 
 impl AnthropicClient {
     pub fn new(cfg: ArkConfig) -> Result<Self, LlmError> {
+        validate_official_ark_base_url(&cfg.base_url, "/api/coding").map_err(LlmError::Config)?;
         if cfg.api_key.trim().is_empty() {
             return Err(LlmError::Config("api_key 未配置".into()));
         }
@@ -33,6 +35,8 @@ impl AnthropicClient {
         // synthesis/validation nodes can stream for minutes. We only want to
         // abort if the server goes silent, not because the whole job is long.
         let http = reqwest::Client::builder()
+            .https_only(true)
+            .redirect(reqwest::redirect::Policy::none())
             .read_timeout(Duration::from_secs(cfg.timeout_secs))
             .connect_timeout(Duration::from_secs(30))
             .build()
@@ -221,7 +225,8 @@ mod tests {
 
     #[test]
     fn parses_text_delta() {
-        let line = r#"data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"你好"}}"#;
+        let line =
+            r#"data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"你好"}}"#;
         match parse_anthropic_sse(line) {
             Some(Delta::Text(t)) => assert_eq!(t, "你好"),
             _ => panic!("expected text delta"),
